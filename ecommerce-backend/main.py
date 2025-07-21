@@ -7,10 +7,10 @@ import os
 from datetime import datetime
 import re
 
-# Initialize FastAPI app
+# 🌱 Start_the_FastAPI _journey_with_life
 app = FastAPI(title="E-commerce Backend API", version="1.0.0")
 
-# MongoDB connection
+# 🔌 Connect_to_MongoDB,_our _data _home
 MONGODB_URI = os.getenv("MONGODB_URI", "mongodb://localhost:27017")
 DATABASE_NAME = "ecommerce_db"
 
@@ -19,13 +19,14 @@ db = client[DATABASE_NAME]
 products_collection = db.products
 orders_collection = db.orders
 
-# Pydantic models for request/response
+# 📦 Define_what_a_product_looks_like
 class ProductCreate(BaseModel):
     name: str
     price: float
     size: str
     available_quantity: int
 
+# 📄 Product response model with _id included
 class Product(BaseModel):
     _id: str
     name: str
@@ -33,19 +34,23 @@ class Product(BaseModel):
     size: str
     available_quantity: int
 
+# 🛒 Structure_of_each_order_item
 class OrderItem(BaseModel):
     product_id: str
     quantity: int
 
+# 🧾 Order_create_model_for_users
 class OrderCreate(BaseModel):
     user_id: str
     items: List[OrderItem]
 
+# 🧾 Detail_each_item_in_the_order
 class OrderItemResponse(BaseModel):
     product_id: str
     quantity: int
     price: float
 
+# 📦 Final_structure_of_order_response
 class Order(BaseModel):
     _id: str
     user_id: str
@@ -53,44 +58,44 @@ class Order(BaseModel):
     total_amount: float
     created_at: str
 
+# 📃 Response_for_listing_products
 class ProductsListResponse(BaseModel):
     data: List[Product]
     page: Dict[str, Any]
 
+# 📃 Response_for_listing_orders
 class OrdersListResponse(BaseModel):
     data: List[Order]
     page: Dict[str, Any]
 
-# Helper function to convert ObjectId to string
+# 🔄 Convert_ObjectId_to_string_format
 def serialize_document(doc):
     if doc:
         doc["_id"] = str(doc["_id"])
     return doc
 
-# Helper function to serialize list of documents
+# 🔁 Convert_all_documents_in_a_list
 def serialize_documents(docs):
     return [serialize_document(doc) for doc in docs]
 
+# 🎯 Root_path,_just _a _warm_greeting
 @app.get("/")
 async def root():
     return {"message": "E-commerce Backend API is running"}
 
+# 🛍️ Create_a_new_product_in_DB
 @app.post("/products", status_code=201)
 async def create_product(product: ProductCreate):
-    """Create a new product"""
     try:
-        # Insert product into MongoDB
         product_dict = product.dict()
         result = products_collection.insert_one(product_dict)
-        
-        # Retrieve the created product
         created_product = products_collection.find_one({"_id": result.inserted_id})
         created_product = serialize_document(created_product)
-        
         return created_product
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error creating product: {str(e)}")
 
+# 📦 List_all_products_with_optional_filters
 @app.get("/products", status_code=200)
 async def list_products(
     name: Optional[str] = Query(None, description="Filter by product name (supports partial search)"),
@@ -98,26 +103,19 @@ async def list_products(
     limit: int = Query(10, ge=1, le=100, description="Number of products to return"),
     offset: int = Query(0, ge=0, description="Number of products to skip")
 ):
-    """List products with optional filtering and pagination"""
     try:
-        # Build filter query
         filter_query = {}
-        
+
         if name:
-            # Use regex for partial matching (case-insensitive)
             filter_query["name"] = {"$regex": re.escape(name), "$options": "i"}
-        
+
         if size:
             filter_query["size"] = size
-        
-        # Get total count for pagination info
+
         total_count = products_collection.count_documents(filter_query)
-        
-        # Execute query with pagination
         products = products_collection.find(filter_query).sort("_id", 1).skip(offset).limit(limit)
         products_list = serialize_documents(list(products))
-        
-        # Prepare response
+
         response = {
             "data": products_list,
             "page": {
@@ -127,94 +125,78 @@ async def list_products(
                 "has_next": offset + limit < total_count
             }
         }
-        
+
         return response
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching products: {str(e)}")
 
+# 🧾 Create_an_order_for_a_user
 @app.post("/orders", status_code=201)
 async def create_order(order: OrderCreate):
-    """Create a new order"""
     try:
         total_amount = 0.0
         order_items = []
-        
-        # Validate products and calculate total
+
         for item in order.items:
-            # Find product
             try:
                 product_id = ObjectId(item.product_id)
             except:
                 raise HTTPException(status_code=400, detail=f"Invalid product_id: {item.product_id}")
-            
+
             product = products_collection.find_one({"_id": product_id})
             if not product:
                 raise HTTPException(status_code=404, detail=f"Product not found: {item.product_id}")
-            
-            # Check availability
+
             if product["available_quantity"] < item.quantity:
                 raise HTTPException(
-                    status_code=400, 
+                    status_code=400,
                     detail=f"Insufficient quantity for product {item.product_id}. Available: {product['available_quantity']}, Requested: {item.quantity}"
                 )
-            
-            # Calculate item total
+
             item_total = product["price"] * item.quantity
             total_amount += item_total
-            
-            # Add to order items
+
             order_items.append({
                 "product_id": item.product_id,
                 "quantity": item.quantity,
                 "price": product["price"]
             })
-            
-            # Update product quantity
+
             products_collection.update_one(
                 {"_id": product_id},
                 {"$inc": {"available_quantity": -item.quantity}}
             )
-        
-        # Create order document
+
         order_doc = {
             "user_id": order.user_id,
             "items": order_items,
             "total_amount": round(total_amount, 2),
             "created_at": datetime.utcnow().isoformat()
         }
-        
-        # Insert order
+
         result = orders_collection.insert_one(order_doc)
-        
-        # Return created order
         created_order = orders_collection.find_one({"_id": result.inserted_id})
         created_order = serialize_document(created_order)
-        
+
         return created_order
     except HTTPException:
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error creating order: {str(e)}")
 
+# 📜 List_orders_placed_by_a_user
 @app.get("/orders/{user_id}", status_code=200)
 async def list_orders(
     user_id: str = Path(..., description="User ID to fetch orders for"),
     limit: int = Query(10, ge=1, le=100, description="Number of orders to return"),
     offset: int = Query(0, ge=0, description="Number of orders to skip")
 ):
-    """List orders for a specific user"""
     try:
-        # Build filter query
         filter_query = {"user_id": user_id}
-        
-        # Get total count
         total_count = orders_collection.count_documents(filter_query)
-        
-        # Execute query with pagination
         orders = orders_collection.find(filter_query).sort("_id", 1).skip(offset).limit(limit)
         orders_list = serialize_documents(list(orders))
-        
-        # Prepare response
+
         response = {
             "data": orders_list,
             "page": {
@@ -224,22 +206,21 @@ async def list_orders(
                 "has_next": offset + limit < total_count
             }
         }
-        
+
         return response
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching orders: {str(e)}")
 
-# Health check endpoint
+# ❤️ Health_check_to_monitor_service
 @app.get("/health")
 async def health_check():
-    """Health check endpoint"""
     try:
-        # Test database connection
         client.admin.command('ping')
         return {"status": "healthy", "database": "connected"}
     except Exception as e:
         raise HTTPException(status_code=503, detail=f"Database connection failed: {str(e)}")
 
+# ▶️ Run_the_app_locally
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)

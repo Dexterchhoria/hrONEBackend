@@ -1,56 +1,74 @@
-"""
-Simple test script to verify the API endpoints
-Run this after starting your FastAPI server
-"""
-
 import requests
 import json
 
+#base_URL
 BASE_URL = "http://localhost:8000"
 
+def test_health_check():
+    """✅ Check if the API server is up and running"""
+    print("\n🔍 Testing Health Check...")
+    try:
+        response = requests.get(f"{BASE_URL}/health")
+        print(f"Status Code: {response.status_code}")
+        print("Response:")
+        print(json.dumps(response.json(), indent=2))
+    except Exception as e:
+        print(f"bhai Health check failed: {e}")
+
 def test_create_product():
-    """Test creating a product"""
-    print("Testing Create Product...")
-    
+    """📦 Test creating a new product"""
+    print("\n🛠️ Testing Create Product...")
+
     product_data = {
         "name": "Wireless Headphones",
         "price": 99.99,
         "size": "large",
         "available_quantity": 50
     }
+
+    try:
+        response = requests.post(f"{BASE_URL}/products", json=product_data)
+        print(f"Status Code: {response.status_code}")
+        print("Response:")
+        print(json.dumps(response.json(), indent=2))
+
+        # Return the product ID if successfully created
+        if response.status_code == 201:
+            return response.json().get("_id")
+    except Exception as e:
+        print(f"Create product failed: {e}")
     
-    response = requests.post(f"{BASE_URL}/products", json=product_data)
-    print(f"Status: {response.status_code}")
-    print(f"Response: {json.dumps(response.json(), indent=2)}")
-    
-    if response.status_code == 201:
-        return response.json()["_id"]
     return None
 
 def test_list_products():
-    """Test listing products"""
-    print("\nTesting List Products...")
-    
-    # Test without filters
-    response = requests.get(f"{BASE_URL}/products")
-    print(f"Status: {response.status_code}")
-    print(f"Response: {json.dumps(response.json(), indent=2)}")
-    
-    # Test with filters
-    print("\nTesting List Products with filters...")
-    params = {"name": "headphones", "size": "large", "limit": 5}
-    response = requests.get(f"{BASE_URL}/products", params=params)
-    print(f"Status: {response.status_code}")
-    print(f"Response: {json.dumps(response.json(), indent=2)}")
+    """📋 Test retrieving product list (with and without filters)"""
+    print("\n📦 Testing List All Products...")
+
+    try:
+        # List all products
+        response = requests.get(f"{BASE_URL}/products")
+        print(f"Status Code: {response.status_code}")
+        print("Response:")
+        print(json.dumps(response.json(), indent=2))
+
+        # List with filters
+        print("\n🔍 Testing List Products with Filters...")
+        params = {"name": "headphones", "size": "large", "limit": 5}
+        response = requests.get(f"{BASE_URL}/products", params=params)
+        print(f"Status Code: {response.status_code}")
+        print("Filtered Response:")
+        print(json.dumps(response.json(), indent=2))
+    except Exception as e:
+        print(f"List products failed: {e}")
 
 def test_create_order(product_id):
-    """Test creating an order"""
-    print("\nTesting Create Order...")
-    
+    """🛒 Test placing an order for a product"""
+    print("\n📝 Testing Create Order...")
+
     if not product_id:
-        print("No product ID available for order test")
+        print("⚠️ No product ID provided. Cannot place order.")
         return None
-    
+
     order_data = {
         "user_id": "user123",
         "items": [
@@ -60,60 +78,64 @@ def test_create_order(product_id):
             }
         ]
     }
-    
-    response = requests.post(f"{BASE_URL}/orders", json=order_data)
-    print(f"Status: {response.status_code}")
-    print(f"Response: {json.dumps(response.json(), indent=2)}")
-    
-    if response.status_code == 201:
-        return response.json()["_id"]
+
+    try:
+        response = requests.post(f"{BASE_URL}/orders", json=order_data)
+        print(f"Status Code: {response.status_code}")
+        print("Response:")
+        print(json.dumps(response.json(), indent=2))
+
+        # Return the order ID if successful
+        if response.status_code == 201:
+            return response.json().get("_id")
+    except Exception as e:
+        print(f"Create order failed: {e}")
+
     return None
 
 def test_list_orders():
-    """Test listing user orders"""
-    print("\nTesting List Orders...")
-    
-    user_id = "user123"
-    response = requests.get(f"{BASE_URL}/orders/{user_id}")
-    print(f"Status: {response.status_code}")
-    print(f"Response: {json.dumps(response.json(), indent=2)}")
+    """📦 Test listing orders for a specific user"""
+    print("\n📦 Testing List Orders for User...")
 
-def test_health_check():
-    """Test health check endpoint"""
-    print("\nTesting Health Check...")
-    
-    response = requests.get(f"{BASE_URL}/health")
-    print(f"Status: {response.status_code}")
-    print(f"Response: {json.dumps(response.json(), indent=2)}")
+    user_id = "user123"
+
+    try:
+        response = requests.get(f"{BASE_URL}/orders/{user_id}")
+        print(f"Status Code: {response.status_code}")
+        print("Response:")
+        print(json.dumps(response.json(), indent=2))
+    except Exception as e:
+        print(f"List orders failed: {e}")
 
 def main():
-    """Run all tests"""
-    print("Starting API Tests...")
-    print("="*50)
-    
-    # Test health check first
+    """🚀 Run all API tests"""
+    print("=" * 50)
+    print("🔧 Starting API Tests...")
+    print("=" * 50)
+
+    # Step 1: Health_check
     test_health_check()
-    
-    # Create a product and get its ID
+
+    # Step 2: Create_a_sample_product
     product_id = test_create_product()
-    
-    # Test listing products
+
+    # Step 3: Listproducts------------
     test_list_products()
-    
-    # Test creating an order
+
+    # Step 4: Create_an_order_with_the_product
     order_id = test_create_order(product_id)
-    
-    # Test listing orders
+
+    # Step 5: List_all_orders_of_the_user
     test_list_orders()
-    
-    print("\n" + "="*50)
-    print("All tests completed!")
+
+    print("\n✅ All tests completed!")
+    print("=" * 50)
 
 if __name__ == "__main__":
     try:
         main()
     except requests.exceptions.ConnectionError:
-        print("Error: Could not connect to the server.")
-        print("Make sure your FastAPI server is running on http://localhost:8000")
+        print("\n❌ Error: Could not connect to the server.")
+        print("➡️ Make sure your FastAPI server is running at http://localhost:8000")
     except Exception as e:
-        print(f"Error running tests: {e}")
+        print(f"\n❌ An unexpected error occurred while running tests: {e}")
